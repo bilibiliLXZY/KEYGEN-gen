@@ -16,10 +16,11 @@
 
 static constexpr double PI = 3.14159265358979323846;
 
+
 // ---------------- RNG ----------------
 struct Rng {
     std::mt19937 rng;
-    explicit Rng(uint32_t seed) : rng(seed) {}
+    explicit Rng(uint64_t seed) : rng(seed) {}
     int ri(int a, int b) { std::uniform_int_distribution<int> d(a, b); return d(rng); }
     double rf() { std::uniform_real_distribution<double> d(0.0, 1.0); return d(rng); }
     double rfn(double mu = 0.0, double sigma = 1.0) { std::normal_distribution<double> d(mu, sigma); return d(rng); }
@@ -577,15 +578,15 @@ static void applyMaster(std::vector<double>& L, std::vector<double>& R, double d
 // ---------------- Main ----------------
 int main(int argc, char** argv) {
     const int SR = 44100; const int CH = 2;
-    uint32_t seed;
-    if (argc >= 2) try { seed = (uint32_t)std::stoul(argv[1]); }
+    uint64_t seed;
+    if (argc >= 2) try { seed = (uint64_t)std::stoull(argv[1]); }
     catch (...) {
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<uint32_t> dis_int(0, UINT_MAX);
+        std::uniform_int_distribution<uint64_t> dis_int(0, UINT_MAX);
         seed = dis_int(gen);
     }
-    else seed = (uint32_t)std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    else seed = (uint64_t)std::chrono::high_resolution_clock::now().time_since_epoch().count();
     int lengthSec = (argc >= 3) ? std::max(10, std::atoi(argv[2])) : 0; // 0 => auto by bars
 
     Rng rng(seed);
