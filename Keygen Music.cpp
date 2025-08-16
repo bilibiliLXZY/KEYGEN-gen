@@ -11,7 +11,7 @@
 #include <fstream>
 #include <iostream>
 #include <random>
-#include <string>
+#include <cstring>
 #include <vector>
 
 static constexpr double PI = 3.14159265358979323846;
@@ -579,16 +579,28 @@ static void applyMaster(std::vector<double>& L, std::vector<double>& R, double d
 int main(int argc, char** argv) {
     const int SR = 44100; const int CH = 2;
     uint64_t seed;
+    if (argc == 2 && strcmp(argv[1], "/?") == 0){
+    	printf("Usage: %s [Seed] [Duration (Second) / auto] [Lead Y/N] [Bass Y/N] [Pad Y/N] [Drums Y/N] [reserved, useless] [RandSeed]\r\n", argv[0]);
+		return 0;
+	}
     if (argc >= 2) try { seed = (uint64_t)std::stoull(argv[1]); }
     catch (...) {
         std::random_device rd;
         std::mt19937 gen(rd());
-        std::uniform_int_distribution<uint64_t> dis_int(0, UINT_MAX);
+        std::uniform_int_distribution<uint64_t> dis_int(0, ULLONG_MAX);
         seed = dis_int(gen);
     }
     else seed = (uint64_t)std::chrono::high_resolution_clock::now().time_since_epoch().count();
+    if (argc >= 9){
+    	std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<uint64_t> dis_int(0, ULLONG_MAX);
+        seed = dis_int(gen);
+	}
     int lengthSec = (argc >= 3) ? std::max(10, std::atoi(argv[2])) : 0; // 0 => auto by bars
-
+	if (argc >= 3 && strcmp(argv[2], "auto") == 0){
+		lengthSec = 0;
+	}
     Rng rng(seed);
     StyleDNA style = makeStyle(seed, SR, rng);
     if (lengthSec > 0.0) {
@@ -602,10 +614,11 @@ int main(int argc, char** argv) {
         << ", Bars: " << style.bars << "\n";
 
     // Build parts
-    fillLead(style, rng, song);
-    fillBass(style, rng, song);
-    fillPad(style, rng, song);
-    fillDrums(style, rng, song);
+    
+    if (argc < 4 || strcmp(argv[3], "Y") == 0)fillLead(style, rng, song);
+    if (argc < 5 || strcmp(argv[4], "Y") == 0)fillBass(style, rng, song);
+    if (argc < 6 || strcmp(argv[5], "Y") == 0)fillPad(style, rng, song);
+    if (argc < 7 || strcmp(argv[6], "Y") == 0)fillDrums(style, rng, song);
 
     // Length
     double songBeats = song.bars * song.beatsPerBar;
@@ -624,17 +637,17 @@ int main(int argc, char** argv) {
 
     // FX & master
     applyMaster(L, R, style.drive, style.crushHold, style.delaySec, style.delayFb, style.delayMix, style.useChorus, SR);
-
-    // Dither + write
-    Rng ditherRng(seed ^ 0xA5A5A5A5u);
-    std::vector<int16_t> out; out.resize(N * CH);
-    for (size_t i = 0; i < N; ++i) {
-        double d1 = (ditherRng.rf() - ditherRng.rf()) * (1.0 / 32768.0);
-        double d2 = (ditherRng.rf() - ditherRng.rf()) * (1.0 / 32768.0);
-        int16_t l = (int16_t)clampd((L[i] + d1) * 32767.0, -32768.0, 32767.0);
-        int16_t r = (int16_t)clampd((R[i] + d2) * 32767.0, -32768.0, 32767.0);
-        out[i * 2 + 0] = l; out[i * 2 + 1] = r;
-    }
+    	// Dither + write
+    	Rng ditherRng(seed ^ 0xA5A5A5A5u);
+    	std::vector<int16_t> out; out.resize(N * CH);
+    	for (size_t i = 0; i < N; ++i) {
+    	    double d1 = (ditherRng.rf() - ditherRng.rf()) * (1.0 / 32768.0);
+    	    double d2 = (ditherRng.rf() - ditherRng.rf()) * (1.0 / 32768.0);
+    	    int16_t l = (int16_t)clampd((L[i] + d1) * 32767.0, -32768.0, 32767.0);
+    	    int16_t r = (int16_t)clampd((R[i] + d2) * 32767.0, -32768.0, 32767.0);
+    	    out[i * 2 + 0] = l; out[i * 2 + 1] = r;
+    	}
+    
 
     try {
         writeWav("keygen_style.wav", out, SR, CH);
